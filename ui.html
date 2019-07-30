@@ -1,0 +1,659 @@
+<div id="page-intro">
+  <p>Select a frame. We’ll check the color contrast of all visible text objects. </p>
+
+  <button class="button-normal" id="button-check">Check</button>
+  
+  <div id="helper-container">
+      <span id="helper-text">
+          <b>Normal fonts (< 19px) </b><br />
+          AA compliant: 4.5:1 <br />
+          AAA compliant: 7:1 <br />
+      </span>
+      <span id="helper-text">
+          <b>Large fonts (19px+) </b><br />
+          AA compliant: 3:1 <br />
+            AAA compliant: 4.5:1 <br />
+      </span>
+  </div>
+ 
+</div>
+
+<!--  split   -->
+
+<div id="page-check-pass">
+  
+  <p><span id="header-pass">AAAMAZING</span><br />&nbsp; <br />
+    All texts meet AAA color contrast requirements.</p>
+
+  <button class="button-normal" id="button-done">Done</button>
+  
+  <div id="helper-container">
+      <span id="helper-text">
+          <b>Normal fonts (< 19px) </b><br />
+          AA compliant: 4.5:1 <br />
+          AAA compliant: 7:1 <br />
+      </span>
+      <span id="helper-text">
+          <b>Large fonts (19px+) </b><br />
+          AA compliant: 3:1 <br />
+            AAA compliant: 4.5:1 <br />
+      </span>
+  </div>
+</div>
+
+<!--  split   -->
+
+<div id="page-check-fail">
+
+  <div id="preface">
+      <p><span id="header-fail" class="header-fail">5</span> 
+        <span class="header-fail">error(s) found in </span>
+        <span id="frame-name" class="header-fail" >Frame name</span><br />&nbsp; <br />
+        We're listing them below.</p>
+    
+        <div id="helper-container">
+            <span id="helper-text">
+                <b>Normal fonts (< 19px) </b><br />
+                AA compliant: 4.5:1 <br />
+                AAA compliant: 7:1 <br />
+            </span>
+            <span id="helper-text">
+                <b>Large fonts (19px +) </b><br />
+                AA compliant: 3:1 <br />
+                  AAA compliant: 4.5:1 <br />
+            </span>
+        </div>
+  </div>
+<!--   
+  
+  <div class="contrast-object">
+    <div class="preview" id="testID"> Text</div>
+    <div class="recs-column">
+        
+        
+        <div class="row">
+            <h3>Text lightness</h3>
+            <input type="range" min="-200" max="200" value="0" class="slider" id="textRange">
+        </div>
+        <div class="row">
+            <h3>Background lightness</h3>
+            <input type="range" min="1" max="100" value="50" class="slider" id="myRange">
+        </div>
+        
+    </div>
+    <div class="contrast-column">
+      <h3>Contrast Ratio</h3>
+      2.9:1
+      <br />&nbsp; 
+      <br /> &nbsp; 
+      <span id="aa-pass">&#9989; AA</span>
+      <span id="aaa-fail">&#10060; AAA </span>
+      
+    </div>
+  </div> -->
+
+  
+  <div id="container-buttons">
+      <button class="button-normal" id="button-recheck">Recheck</button>
+      <button class="button-normal" id="button-exit">Done</button>
+  </div>
+  
+</div>
+
+<!-- ////////////////////////////////////////// -->
+<!-- ////////// JAVASCRIPT START HERE ///////// -->
+<!-- ////////////////////////////////////////// -->
+
+<script>
+// initialization of pages 
+// parent.postMessage({ pluginMessage: { type: 'resize', size: 'large' } }, '*'); 
+// document.getElementById('page-intro').style.visibility = "hidden"; 
+document.getElementById('page-check-pass').style.visibility = "hidden";
+document.getElementById('page-check-fail').style.visibility = "hidden"; 
+
+if (!document.hasFocus()) { // When opening the plugin, the window is blurred by default
+  parent.postMessage({ pluginMessage: { type: 'window-blur' } }, '*');
+}
+window.addEventListener('blur', () => {
+  parent.postMessage({ pluginMessage: { type: 'window-blur' } }, '*');
+});
+window.addEventListener('focus', () => {
+  parent.postMessage({ pluginMessage: { type: 'window-focus' } }, '*');
+  
+  // var x = document.getElementsByClassName('contrast-object'); 
+  // for(var i = x.length - 1; i >= 0; i--) {
+  //     x[i].parentNode.removeChild(x[i]);
+  // }
+
+  // parent.postMessage({ pluginMessage: { type: 'check-contrast' } }, '*'); 
+
+});
+
+// adding button functionality 
+document.getElementById('button-exit').onclick = () => {
+
+  var x = document.getElementsByClassName('contrast-object'); 
+  for(var i = x.length - 1; i >= 0; i--) {
+      x[i].parentNode.removeChild(x[i]);
+  }
+
+
+  document.getElementById('page-check-fail').style.visibility = "hidden"; 
+  document.getElementById('page-check-pass').style.visibility = "hidden"; 
+  document.getElementById('page-intro').style.visibility = "visible"; 
+  parent.postMessage({ pluginMessage: { type: 'resize', size: 'small' } }, '*')
+};
+
+document.getElementById('button-done').onclick = () => {
+  document.getElementById('page-check-fail').style.visibility = "hidden"; 
+  document.getElementById('page-check-pass').style.visibility = "hidden"; 
+  document.getElementById('page-intro').style.visibility = "visible"; 
+}; 
+
+document.getElementById('button-check').onclick = () => {
+  // disable this button if nothing is selected 
+  // todo send message to parent to check for inaccessible text 
+  parent.postMessage({ pluginMessage: { type: 'check-contrast' } }, '*'); 
+}
+
+document.getElementById('button-recheck').onclick = () => {
+
+  
+  var x = document.getElementsByClassName('contrast-object'); 
+  for(var i = x.length - 1; i >= 0; i--) {
+      x[i].parentNode.removeChild(x[i]);
+  }
+
+  parent.postMessage({ pluginMessage: { type: 'check-contrast' } }, '*'); 
+  // 
+}
+
+
+// receiving messages from parent 
+onmessage = (event) => {
+  var message = event.data.pluginMessage; 
+  if (message.type === 'disable-buttons') {
+    document.getElementById('button-check').disabled = message.isDisabled; 
+  } else if (message.type === 'check-pass') {
+    parent.postMessage({ pluginMessage: { type: 'resize', size: 'small' } }, '*'); 
+    document.getElementById('page-intro').style.visibility = "hidden"; 
+    document.getElementById('page-check-fail').style.visibility = "hidden"; 
+    document.getElementById('page-check-pass').style.visibility = "visible"; 
+  } else if (message.type === 'check-fail') {
+    parent.postMessage({ pluginMessage: { type: 'resize', size: 'large' } }, '*'); 
+    document.getElementById('page-intro').style.visibility = "hidden"; 
+    document.getElementById('page-check-fail').style.visibility = "visible"; 
+    document.getElementById('page-check-pass').style.visibility = "hidden"; 
+
+    var inaccessibleTexts = message.inaccessibleTexts; 
+    var aaTexts = message.aaTexts; 
+    document.getElementById("header-fail").innerHTML = inaccessibleTexts.length + aaTexts.length; 
+    document.getElementById("frame-name").innerHTML = message.frameName; 
+
+    for (let t of inaccessibleTexts) {
+      createFocusObject(t, true); 
+    }
+    for (let t of aaTexts) {
+      createFocusObject(t, false); 
+    }
+  } else if (message.type === 'test') { 
+    console.log(message); 
+  }
+}
+
+function createFocusObject(text, failedAll) {
+  var contrastObject = document.createElement("div"); 
+  contrastObject.className = "contrast-object"; 
+  contrastObject.id = text["nodeID"]; 
+
+  var previewColumn = document.createElement('div'); 
+  previewColumn.className = "preview-column"; 
+
+    var preview = document.createElement("div"); 
+    preview.className = "preview"; 
+    preview.innerHTML = "A";
+    preview.style.fontSize = (text.fontSize >= 19) ? "30px" : "15px";  
+    preview.style.color = getRGB(text["textColor"]); 
+    preview.style.backgroundColor = getRGB(text["bgColor"]); 
+    preview.id = getRGB(text["textColor"]) + ":" + getRGB(text["bgColor"]); 
+    preview.onclick = () => {
+      parent.postMessage({ pluginMessage: { type: 'select-node', id: contrastObject.id } }, '*'); 
+    }; 
+
+    var buttonReset = document.createElement("input"); 
+    buttonReset.type = "button"; 
+    buttonReset.className = "button-reset"; 
+    buttonReset.value = "Reset"; 
+    buttonReset.onclick = () => {
+      document.getElementById(text["nodeID"]).getElementsByClassName("sliderText")[0].value = 0; 
+      document.getElementById(text["nodeID"]).getElementsByClassName("sliderBG")[0].value = 0; 
+      updateRGB(text["nodeID"], true, text.fontSize); 
+      updateRGB(text["nodeID"], false, text.fontSize); 
+    }
+
+    previewColumn.appendChild(preview); 
+    previewColumn.appendChild(buttonReset); 
+
+  
+  var recsColumn = document.createElement("div"); 
+  recsColumn.className = "recs-column"; 
+
+    var row1 = document.createElement("div"); 
+      row1.className = "row";
+      var h3 = document.createElement("h3"); 
+      h3.innerHTML = "Text lightness";   
+      var input1 = document.createElement("input");
+      input1.setAttribute("type", "range");
+      input1.setAttribute("min", "-200"); 
+      input1.setAttribute("max", "200"); 
+      input1.setAttribute("value", "0"); 
+      input1.className = "sliderText";  
+      input1.addEventListener("input", () => 
+        updateRGB(text["nodeID"], true, text.fontSize)
+        );       
+      row1.appendChild(h3); 
+      row1.appendChild(input1); 
+
+    var row2 = document.createElement("div"); 
+      row2.className = "row";
+      var h32 = document.createElement("h3"); 
+      h32.innerHTML = "Background lightness";   
+      var input2 = document.createElement("input");
+      input2.setAttribute("type", "range");
+      input2.setAttribute("min", "-200"); 
+      input2.setAttribute("max", "200"); 
+      input2.setAttribute("value", "0"); 
+      input2.className = "sliderBG"; 
+      input2.addEventListener("input", () => 
+        updateRGB(text["nodeID"], false, text.fontSize)
+
+        
+        );   
+      row2.appendChild(h32); 
+      row2.appendChild(input2); 
+  
+    recsColumn.appendChild(row1); 
+    recsColumn.appendChild(row2); 
+
+  
+  var contrastColumn = document.createElement("div"); 
+  contrastColumn.className = "contrast-column"; 
+  var aaChecks = failedAll ? 
+    "<span id='aa-fail'>&#10060; AA</span><span id='aaa-fail'>&#10060; AAA </span>" : 
+    "<span id='aa-pass'>&#9989; AA</span><span id='aaa-fail'>&#10060; AAA </span>" ; 
+  contrastColumn.innerHTML = "<h3>Contrast Ratio</h3>" + text["contrastRatio"] + "<br />&nbsp; <br />&nbsp;" + aaChecks; 
+
+
+  contrastObject.appendChild(previewColumn); 
+  contrastObject.appendChild(recsColumn); 
+  contrastObject.appendChild(contrastColumn); 
+  
+
+  document.getElementById("page-check-fail").appendChild(contrastObject); 
+}
+
+function getRGB(colorObject) {
+  var finalColor = "rgb("; 
+  finalColor += Math.round(colorObject["r"] * 255) + ","; 
+  finalColor += Math.round(colorObject["g"] * 255) + ","; 
+  finalColor += Math.round(colorObject["b"] * 255) + ")"; 
+
+  return finalColor;  
+}
+
+// rgb, hex conversions 
+function rgbToHex(r, g, b) {
+  return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+}
+function hexToRgb(hex) {
+  var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return result ? {
+    r: parseInt(result[1], 16),
+    g: parseInt(result[2], 16),
+    b: parseInt(result[3], 16)
+  } : null;
+}
+
+
+// document.getElementById('textRange').addEventListener("input", () => updateRGB("textRange", "testID") ); 
+
+
+function updateRGB(id, updateText, fontSize) {
+  
+  // this gets hte amount to mod by 
+  var inputRangeValue = (updateText) ? document.getElementById(id).getElementsByClassName("sliderText")[0].value : document.getElementById(id).getElementsByClassName("sliderBG")[0].value; 
+  
+  // this gets the initial values 
+  var elementToUpdate = document.getElementById(id).getElementsByClassName("preview")[0]; 
+  var textColor = elementToUpdate.id.split(":")[0]; 
+  var bgColor = elementToUpdate.id.split(":")[1]; 
+  var initColorRGB = (updateText) ? textColor : bgColor;
+  initColorRGB = initColorRGB.split("rgb(")[1].split(")")[0].split(","); 
+  var initColorHex = rgbToHex(parseInt(initColorRGB[0]), parseInt(initColorRGB[1]), parseInt(initColorRGB[2])); 
+  var colorNew = getTintedColor(initColorHex, parseInt(inputRangeValue)); 
+  var contrastRatio = ""; 
+
+  // set text or background 
+  if (updateText) {
+    elementToUpdate.style.color = colorNew; 
+  } else {
+    elementToUpdate.style.backgroundColor = colorNew; 
+  }
+
+
+  backgroundColor = window.getComputedStyle(elementToUpdate).getPropertyValue("background-color"); 
+  backgroundColor = backgroundColor.split("rgb(")[1].split(")")[0].split(","); 
+  textColor = window.getComputedStyle(elementToUpdate).getPropertyValue("color"); 
+  textColor = textColor.split("rgb(")[1].split(")")[0].split(","); 
+  contrastRatio = getContrast(
+    textColor[0] / 255, textColor[1] / 255, textColor[2] / 255, 
+    backgroundColor[0] / 255, backgroundColor[1] / 255, backgroundColor[2] / 255); 
+
+// send changes to parent 
+  parent.postMessage({ pluginMessage: { type: 'update-colors', id: id, textColor:  textColor, backgroundColor: backgroundColor} }, '*');
+
+  var aaChecks = ""; 
+
+  if (((fontSize >= 19) && (contrastRatio < 3))  || ((fontSize < 19) && (contrastRatio < 4.5))) { 
+    aaChecks = "<span id='aa-fail'>&#10060; AA</span><span id='aaa-fail'>&#10060; AAA </span>" ; 
+  } else if (((fontSize >= 19) && (contrastRatio < 4.5))  || ((fontSize < 19) && (contrastRatio < 7))) { 
+    aaChecks = "<span id='aa-pass'>&#9989; AA</span><span id='aaa-fail'>&#10060; AAA </span>" ; 
+  } else {
+    aaChecks = "<span id='aa-pass'>&#9989; AA</span><span id='aaa-pass'>&#9989; AAA </span>" ; 
+  }
+  var contrastColumn = document.createElement("div"); 
+  contrastColumn.className = "contrast-column"; 
+  document.getElementById(id).getElementsByClassName("contrast-column")[0].innerHTML = "<h3>Contrast Ratio</h3>" + contrastRatio + "<br />&nbsp; <br />&nbsp;" + aaChecks; 
+  
+}
+
+
+function getTintedColor(color, v) {
+    if (color.length >6) { color= color.substring(1,color.length)}
+    var rgb = parseInt(color, 16); 
+    var r = Math.abs(((rgb >> 16) & 0xFF)+v); if (r>255) r=r-(r-255);
+    var g = Math.abs(((rgb >> 8) & 0xFF)+v); if (g>255) g=g-(g-255);
+    var b = Math.abs((rgb & 0xFF)+v); if (b>255) b=b-(b-255);
+    r = Number(r < 0 || isNaN(r)) ? 0 : ((r > 255) ? 255 : r).toString(16); 
+    if (r.length == 1) r = '0' + r;
+    g = Number(g < 0 || isNaN(g)) ? 0 : ((g > 255) ? 255 : g).toString(16); 
+    if (g.length == 1) g = '0' + g;
+    b = Number(b < 0 || isNaN(b)) ? 0 : ((b > 255) ? 255 : b).toString(16); 
+    if (b.length == 1) b = '0' + b;
+    return "#" + r + g + b;
+} 
+
+function convertRGB(color) {
+	if (color <= 0.04045) return color / 12.92;
+	else return Math.pow((color + 0.055) / 1.055, 2.4);
+};
+
+function getContrast(tr, tb, tg, br, bb, bg) {
+	var textLuminance =
+		convertRGB(tr) * 0.2126 + convertRGB(tg) * 0.7152 + convertRGB(tb) * 0.0722;
+	var bgLuminance = convertRGB(br) * 0.2126 + convertRGB(bg) * 0.7152 + convertRGB(bb) * 0.0722;
+	var contrastRatio = (Math.max(textLuminance, bgLuminance) + 0.05) / (Math.min(textLuminance, bgLuminance) + 0.05);
+	return parseFloat(contrastRatio.toFixed(2));
+};
+
+
+</script>
+
+
+
+<style>
+
+#page-intro, #page-check-pass, #page-check-fail {
+  width: 100vw; 
+  /* height: 100vh;  */
+  position: absolute; 
+  top: 0px; 
+  left: 0px; 
+  display: flex; 
+  flex-direction: column; 
+  font-family: "Roboto", "Segoe UI"; 
+  font-size: 12px; 
+  text-align: center; 
+  line-height: 1.2em; 
+  align-items: center; 
+
+}
+
+#page-check-fail {
+  padding-bottom: 70px; 
+}
+
+#page-intro, #page-check-pass {
+  height: 100vh; 
+  }
+
+#page-intro, #page-check-pass {
+  justify-content:space-around; 
+}
+
+#preface {
+  width: 310px; 
+  border-bottom: 1px solid #EFEFEF; 
+  display: flex; 
+  flex-direction: column; 
+  align-items: center; 
+  padding: 10px 0px 20px 0px; 
+
+}
+
+
+p {
+  width: 70%; 
+}
+
+#header-pass {
+  font-weight: bold; 
+  color: #2F731F; 
+}
+
+.header-fail {
+  font-weight: bold; 
+  color: #B2230F; 
+}
+
+#container-buttons {
+  width: 100vw; 
+  display: flex; 
+  flex-direction: row; 
+  justify-content: center; 
+  padding: 15px 0px;
+  background-color: rgb(255, 255, 255); 
+  /* border-top: 1px solid #c2c2c2;  */
+  position: fixed; 
+  bottom: 0; 
+}
+
+.button-normal {
+  background-color: #1DA0FB; 
+  color: white; 
+  border-radius: 999px; 
+  border: 1px solid #1DA0FB; 
+  padding: 13px 25px; 
+  margin: 0px 10px; 
+  font-size: 12px; 
+  width: 100px; 
+
+}
+
+button:disabled, button:disabled:hover {
+  background-color: #8F8F8F; 
+  border: 1px solid #8F8F8F; 
+  cursor: default;
+}
+
+.button-normal:hover {
+  cursor: pointer; 
+  background-color: #1191EB; 
+  border-color: #1191EB; 
+}
+
+#button-exit {
+  background-color: white; 
+  border: 2px solid #B2230F; 
+  color: #B2230F; 
+}
+
+.button-reset {
+  background-color: white; 
+  border: 1px solid #1191EB; 
+  color: #1191EB; 
+  border-radius: 500px; 
+  padding: 3px; 
+  cursor: pointer; 
+}
+
+.button-reset:hover {
+  background-color: #1191EB; 
+  border: 1px solid #1191EB; 
+  color: white; 
+  border-radius: 500px; 
+  padding: 3px; 
+  cursor: pointer; 
+}
+
+#button-exit:hover {
+  background-color: #DF3E28; 
+  border-color: white; 
+  color: white; 
+
+}
+
+#helper-container {
+  display: flex; 
+  flex-direction: row; 
+  justify-content: space-between; 
+  width: 75vw; 
+  padding-top: 10px; 
+  /* border: 1px solid black;  */
+}
+
+#helper-text {
+  font-size: 10px; 
+  font-weight: lighter; 
+  color: #808080; 
+  text-align: center; 
+}
+
+
+/* start styling objects here */
+
+.contrast-object {
+  width: 310px; 
+  /* border: 1px solid black;  */
+  border-bottom: 1px solid #EFEFEF; 
+  padding: 15px 0px; 
+  display: flex; 
+  flex-direction: row; 
+  justify-content: space-between; 
+}
+
+.preview-column {
+  display: flex; 
+  flex-direction: column; 
+  justify-content: space-between; 
+}
+
+.preview {
+  height: 60px; 
+  width: 60px; 
+  border-radius: 10px; 
+  background-color: #C4C4C4; 
+  color: #25A5FF; 
+  display: flex; 
+  justify-content: center; 
+  align-items: center; 
+  font-size: 30px; 
+  /* border: 1px solid #c2c2c2;  */
+}
+
+.contrast-column {
+  display: flex; 
+  flex-direction: column; 
+  justify-content: top; 
+  align-items: flex-start; 
+  font-size: 12px; 
+  font-weight: bold; 
+  line-height: 14px; 
+  /* border: 1px solid blue;  */
+}
+
+.recs-column {
+  display: flex; 
+  flex-direction: column; 
+  justify-content: space-between; 
+  align-items: flex-start; 
+  font-size: 12px; 
+  font-weight: bold; 
+  line-height: 14px; 
+  /* border: 1px solid blue;  */
+}
+
+.row {
+  display: flex; 
+  flex-direction: column; 
+  align-items: flex-start; 
+  padding-bottom: 5px; 
+}
+
+.preview-mini {
+  height: 30px; 
+  width: 30px; 
+  background-color: #C4C4C4;
+  border: 1px solid white; 
+  border-radius: 4px; 
+  display: flex; 
+  justify-content: center; 
+  align-items: center; 
+  margin-right: 5px; 
+
+  font-weight: normal; 
+  
+}
+
+h3 {
+  font-size: 10px; 
+  font-weight: normal; 
+  line-height: 23px; 
+  padding: 0px; 
+  margin: 0px; 
+}
+
+.sliderText, .sliderBG {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 1px;
+  margin: 10px 0px; 
+  border-radius: 15px;   
+  background: #C4C4C4;
+  outline: none;
+  opacity: 1;
+  -webkit-transition: .2s;
+  transition: opacity .2s;
+}
+
+.sliderText::-webkit-slider-thumb, .sliderBG::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%; 
+  background: #1191EB;
+  cursor: pointer;
+}
+
+.sliderText::-moz-range-thumb, .sliderBG::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #1191EB;
+  cursor: pointer;
+}
+
+/* end  */
+
+</style>

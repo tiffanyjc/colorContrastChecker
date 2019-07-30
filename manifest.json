@@ -1,0 +1,7 @@
+{
+  "name": "Color Contrast",
+  "id": "733159460536249875",
+  "api": "0.6.0",
+  "main": "code.js",
+  "ui": "ui.html"
+}
