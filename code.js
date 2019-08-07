@@ -1,46 +1,24 @@
-/**
- * A simple wrapper around the JS interval to
- * watch the canvas for changes in a cleaner way.
- */
-var CanvasWatcher = /** @class */ (function () {
-    function CanvasWatcher() {
-        this.fps = 1000 / 15; // number of times you want to check and update objects per second
-        this.stopCallback = null;
+var CanvasUpdater = /** @class */ (function () {
+    function CanvasUpdater() {
     }
-    CanvasWatcher.prototype.start = function (callback, stopCallback) {
-        this.id = setInterval(callback, this.fps);
-        if (stopCallback) {
-            this.stopCallback = stopCallback;
-        }
+    CanvasUpdater.prototype.start = function (callback) {
+        this.id = setInterval(callback, 1000 / 15);
     };
-    CanvasWatcher.prototype.stop = function () {
+    CanvasUpdater.prototype.stop = function () {
         clearInterval(this.id);
-        if (this.stopCallback) {
-            this.stopCallback();
-        }
-        this.stopCallback = null;
     };
-    return CanvasWatcher;
+    return CanvasUpdater;
 }());
-var canvasWatcher = new CanvasWatcher();
+var canvasUpdater = new CanvasUpdater();
 var message = {};
 var curFrame = null;
 var textNodeToBgNode = {};
-// This shows the HTML page in "ui.html". UI is completely optional. Feel free
-// to delete this if you don't want your plugin to have any UI. In that case
-// you can just call methods directly on the "figma" object in your plugin.
 figma.showUI(__html__, { width: 300, height: 300 });
-// Calls to "parent.postMessage" from within the HTML page will trigger this
-// callback. The callback will be passed the "pluginMessage" property of the
-// posted message.
 figma.ui.onmessage = function (msg) {
-    // One way of distinguishing between different types of messages sent from
-    // your HTML page is to use an object with a "type" property like this.
     if (msg.type === 'resize') {
         var width = (msg.size == "small") ? 300 : 400;
         var height = (msg.size == "small") ? 300 : 600;
         curFrame = (msg.size == "small") ? null : curFrame;
-        // stopped here, was trying to get figma to resize depending on state 
         figma.ui.resize(width, height);
     }
     else if (msg.type === 'window-blur') {
@@ -92,8 +70,6 @@ figma.ui.onmessage = function (msg) {
     else if (msg.type === 'check-contrast') {
         var selection = (curFrame == null) ? figma.currentPage.selection[0] : curFrame;
         curFrame = (curFrame == null) ? figma.currentPage.selection[0] : curFrame;
-        // var clipsContent = selection.clipsContent;
-        // if (!clipsContent) selection.clipsContent = true;
         var texts = selection.findAll(function (node) { return (node.type === 'TEXT') && completelyVisible(node) && typeof node.fills !== 'symbol'; });
         var backgrounds = selection.findAll(function (node) {
             return (node.type === 'RECTANGLE' ||
@@ -104,7 +80,6 @@ figma.ui.onmessage = function (msg) {
                 (completelyVisible(node)) &&
                 hasFill(node);
         });
-        // trying to do it all in one loop here 
         var inaccessibleTexts = [];
         var aaTexts = [];
         var aaaTexts = [];
@@ -116,7 +91,6 @@ figma.ui.onmessage = function (msg) {
                 var topLayer = topMostLayer(text, selection, overlappingBGs);
                 textNodeToBgNode[text.id] = topLayer.id;
                 var textColor = text.fills[0].color;
-                // var frameColor = (<SolidPaint> selection.backgrounds[0]).color; 
                 var frameBackgrounds = selection.backgrounds;
                 var frameColor = (frameBackgrounds.length > 0) ? selection.backgrounds[0].color : null;
                 var topLayerColor = ((topLayer != null) && (topLayer.type != "FRAME")) ? topLayer.fills[0].color : frameColor;
@@ -134,7 +108,6 @@ figma.ui.onmessage = function (msg) {
                         });
                     }
                     else if (((fontSize >= 19) && (contrastRatio < 4.5)) || ((fontSize < 19) && (contrastRatio < 7))) {
-                        // aaTexts.push(text); 
                         aaTexts.push({
                             "nodeID": text.id,
                             "textColor": textColor,
@@ -144,7 +117,6 @@ figma.ui.onmessage = function (msg) {
                         });
                     }
                     else {
-                        // aaaTexts.push(text); 
                         aaaTexts.push({
                             "nodeID": text.id,
                             "textColor": textColor,
@@ -171,20 +143,14 @@ figma.ui.onmessage = function (msg) {
         }
         figma.ui.postMessage(message);
     }
-    // Make sure to close the plugin when you're done. Otherwise the plugin will
-    // keep running, which shows the cancel button at the bottom of the screen.
-    // figma.closePlugin();
 };
-// functions here
 function onCanvasFocus() {
-    canvasWatcher.start(updateCanvas, finishUpdating);
+    canvasUpdater.start(checkButtons);
 }
 function onWindowFocus() {
-    canvasWatcher.stop();
+    canvasUpdater.stop();
 }
-function updateCanvas() {
-    // Check if the states of objects you are watching has changed
-    // Update the properties of objects if necessary
+function checkButtons() {
     message = {
         type: "disable-buttons",
         isDisabled: !((figma.currentPage.selection.length > 0) && figma.currentPage.selection[0].type == "FRAME")
@@ -194,11 +160,6 @@ function updateCanvas() {
         type: "recheck-contrast"
     };
     figma.ui.postMessage(message);
-}
-function finishUpdating() {
-    // Do something after user has finished updating objects
-    // I use this method to recalculate the positions of objects with 
-    // better accuracy since it doesn't need to happen in real time.
 }
 function convertRGB(color) {
     if (color <= 0.04045)
