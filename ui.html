@@ -137,6 +137,7 @@ document.getElementById('button-exit').onclick = () => {
   document.getElementById('page-check-pass').style.visibility = "hidden"; 
   document.getElementById('page-intro').style.visibility = "visible"; 
   document.getElementById('zero-state-nav').style.visibility = "visible"; 
+  parent.postMessage({ pluginMessage: { type: 'check-done' } }, '*');
 };
 
 document.getElementById('button-done').onclick = () => {

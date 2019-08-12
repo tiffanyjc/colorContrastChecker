@@ -18,7 +18,9 @@ var textNodeToBgNode = {};
 figma.showUI(__html__, { width: 375, height: 500 });
 
 figma.ui.onmessage = msg => {
-  if (msg.type === 'window-blur') {
+  if (msg.type === 'check-done') {
+    curFrame = null; 
+  } else if (msg.type === 'window-blur') {
     onCanvasFocus();
   } else if (msg.type === 'window-focus') {
     onWindowFocus();
@@ -64,18 +66,29 @@ figma.ui.onmessage = msg => {
     curFrame = (curFrame == null) ? <FrameNode> figma.currentPage.selection[0] : curFrame; 
     
     var texts = selection.findAll(
-      node => (node.type === 'TEXT') && completelyVisible(node) && typeof node.fills !== 'symbol'
+      node => (node.type === 'TEXT') && completelyVisible(node) && hasFill(node) && typeof node.fills !== 'symbol'
     ) as Array<TextNode>;
-    var backgrounds = selection.findAll(
-      node =>
-        (node.type === 'RECTANGLE' ||
-        node.type === 'VECTOR' ||
-        node.type === 'FRAME' ||
-        node.type === 'COMPONENT' ||
-        node.type === 'INSTANCE') && 
-        (completelyVisible(node)) && 
-        hasFill(node)
-    );
+
+
+    function validBackground(s) {
+      return (((s.type == 'RECTANGLE') || (s.type == 'VECTOR') || (s.type == 'FRAME')) && completelyVisible(s) && hasFill(s)); 
+    }
+
+    var backgrounds = validBackgrounds(selection.children); 
+
+    function validBackgrounds(selection) {  
+      var bgs = []; 
+      for (let s of selection) {  
+        if (validBackground(s)) {
+          bgs.push(s); 
+        } else if ((s.type == 'GROUP') || (s.type == 'COMPONENT') || (s.type == 'INSTANCE')) {
+          bgs = bgs.concat(validBackgrounds(s.children)); 
+        } 
+      }
+      
+      return bgs; 
+    }
+   
 
     var inaccessibleTexts = [];
     var aaTexts = []; 
@@ -88,7 +101,6 @@ figma.ui.onmessage = msg => {
         
         var topLayer = topMostLayer(text, selection, overlappingBGs); 
         textNodeToBgNode[text.id] = topLayer.id; 
-
         var textColor = text.fills[0].color; 
         
         var frameBackgrounds = selection.backgrounds; 
@@ -281,6 +293,6 @@ function hasFill(node) {
   if (node.type == "FRAME") {
     return (node.backgrounds.length >= 0); 
   } else {
-    return (node.fills.length >= 0); 
+    return (node.fills.length > 0); 
   }
 }

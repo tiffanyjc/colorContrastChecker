@@ -15,7 +15,10 @@ var curFrame = null;
 var textNodeToBgNode = {};
 figma.showUI(__html__, { width: 375, height: 500 });
 figma.ui.onmessage = function (msg) {
-    if (msg.type === 'window-blur') {
+    if (msg.type === 'check-done') {
+        curFrame = null;
+    }
+    else if (msg.type === 'window-blur') {
         onCanvasFocus();
     }
     else if (msg.type === 'window-focus') {
@@ -64,16 +67,24 @@ figma.ui.onmessage = function (msg) {
     else if (msg.type === 'check-contrast') {
         var selection = (curFrame == null) ? figma.currentPage.selection[0] : curFrame;
         curFrame = (curFrame == null) ? figma.currentPage.selection[0] : curFrame;
-        var texts = selection.findAll(function (node) { return (node.type === 'TEXT') && completelyVisible(node) && typeof node.fills !== 'symbol'; });
-        var backgrounds = selection.findAll(function (node) {
-            return (node.type === 'RECTANGLE' ||
-                node.type === 'VECTOR' ||
-                node.type === 'FRAME' ||
-                node.type === 'COMPONENT' ||
-                node.type === 'INSTANCE') &&
-                (completelyVisible(node)) &&
-                hasFill(node);
-        });
+        var texts = selection.findAll(function (node) { return (node.type === 'TEXT') && completelyVisible(node) && hasFill(node) && typeof node.fills !== 'symbol'; });
+        function validBackground(s) {
+            return (((s.type == 'RECTANGLE') || (s.type == 'VECTOR') || (s.type == 'FRAME')) && completelyVisible(s) && hasFill(s));
+        }
+        var backgrounds = validBackgrounds(selection.children);
+        function validBackgrounds(selection) {
+            var bgs = [];
+            for (var _i = 0, selection_1 = selection; _i < selection_1.length; _i++) {
+                var s = selection_1[_i];
+                if (validBackground(s)) {
+                    bgs.push(s);
+                }
+                else if ((s.type == 'GROUP') || (s.type == 'COMPONENT') || (s.type == 'INSTANCE')) {
+                    bgs = bgs.concat(validBackgrounds(s.children));
+                }
+            }
+            return bgs;
+        }
         var inaccessibleTexts = [];
         var aaTexts = [];
         var aaaTexts = [];
@@ -273,6 +284,6 @@ function hasFill(node) {
         return (node.backgrounds.length >= 0);
     }
     else {
-        return (node.fills.length >= 0);
+        return (node.fills.length > 0);
     }
 }
