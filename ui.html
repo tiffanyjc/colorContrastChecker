@@ -1,3 +1,12 @@
+
+  <div id="zero-state-nav">
+    <span id="link-instructions">
+      Instructions
+    </span>
+    <span id="link-about">
+      About
+    </span>
+</div>
 <div id="page-intro">
   <p>Select a frame. We’ll check the color contrast of all visible text objects. </p>
 
@@ -16,6 +25,13 @@
       </span>
   </div>
  
+</div>
+
+<div id="about">
+    <h1>Microsoft Focus Orderer</h1>
+    <p>&copy; 2019 Microsoft. All rights reserved.</p>
+    <p><a href="http://contentreel.design/license-terms/Software-License-Terms.pdf" target="_blank">Microsoft Software License Terms</a></p>
+    <p><a href="https://privacy.microsoft.com/en-US/privacystatement"> Microsoft Privacy Statement</a></p>
 </div>
 
 <!--  split   -->
@@ -64,33 +80,6 @@
             </span>
         </div>
   </div>
-<!--   
-  
-  <div class="contrast-object">
-    <div class="preview" id="testID"> Text</div>
-    <div class="recs-column">
-        
-        
-        <div class="row">
-            <h3>Text lightness</h3>
-            <input type="range" min="-200" max="200" value="0" class="slider" id="textRange">
-        </div>
-        <div class="row">
-            <h3>Background lightness</h3>
-            <input type="range" min="1" max="100" value="50" class="slider" id="myRange">
-        </div>
-        
-    </div>
-    <div class="contrast-column">
-      <h3>Contrast Ratio</h3>
-      2.9:1
-      <br />&nbsp; 
-      <br /> &nbsp; 
-      <span id="aa-pass">&#9989; AA</span>
-      <span id="aaa-fail">&#10060; AAA </span>
-      
-    </div>
-  </div> -->
 
   
   <div id="container-buttons">
@@ -106,12 +95,26 @@
 
 <script>
 // initialization of pages 
-// parent.postMessage({ pluginMessage: { type: 'resize', size: 'large' } }, '*'); 
-// document.getElementById('page-intro').style.visibility = "hidden"; 
 document.getElementById('page-check-pass').style.visibility = "hidden";
 document.getElementById('page-check-fail').style.visibility = "hidden"; 
+document.getElementById("about").hidden = true; 
+document.getElementById('link-instructions').style.color = "black"; 
 
-if (!document.hasFocus()) { // When opening the plugin, the window is blurred by default
+document.getElementById("link-instructions").onclick = () => {
+  document.getElementById("link-instructions").style.color = "black";
+  document.getElementById("link-about").style.color = "#929292";
+  document.getElementById("page-intro").style.visibility = "visible"; 
+  document.getElementById("about").hidden = true;  
+}
+
+document.getElementById("link-about").onclick = () => {
+  document.getElementById("link-about").style.color = "black";
+  document.getElementById("link-instructions").style.color = "#929292";
+  document.getElementById("page-intro").style.visibility = "hidden"; 
+  document.getElementById("about").hidden = false; 
+}
+
+if (!document.hasFocus()) { 
   parent.postMessage({ pluginMessage: { type: 'window-blur' } }, '*');
 }
 window.addEventListener('blur', () => {
@@ -119,14 +122,6 @@ window.addEventListener('blur', () => {
 });
 window.addEventListener('focus', () => {
   parent.postMessage({ pluginMessage: { type: 'window-focus' } }, '*');
-  
-  // var x = document.getElementsByClassName('contrast-object'); 
-  // for(var i = x.length - 1; i >= 0; i--) {
-  //     x[i].parentNode.removeChild(x[i]);
-  // }
-
-  // parent.postMessage({ pluginMessage: { type: 'check-contrast' } }, '*'); 
-
 });
 
 // adding button functionality 
@@ -141,13 +136,14 @@ document.getElementById('button-exit').onclick = () => {
   document.getElementById('page-check-fail').style.visibility = "hidden"; 
   document.getElementById('page-check-pass').style.visibility = "hidden"; 
   document.getElementById('page-intro').style.visibility = "visible"; 
-  parent.postMessage({ pluginMessage: { type: 'resize', size: 'small' } }, '*')
+  document.getElementById('zero-state-nav').style.visibility = "visible"; 
 };
 
 document.getElementById('button-done').onclick = () => {
   document.getElementById('page-check-fail').style.visibility = "hidden"; 
   document.getElementById('page-check-pass').style.visibility = "hidden"; 
   document.getElementById('page-intro').style.visibility = "visible"; 
+  document.getElementById('zero-state-nav').style.visibility = "visible"; 
 }; 
 
 document.getElementById('button-check').onclick = () => {
@@ -175,15 +171,15 @@ onmessage = (event) => {
   if (message.type === 'disable-buttons') {
     document.getElementById('button-check').disabled = message.isDisabled; 
   } else if (message.type === 'check-pass') {
-    parent.postMessage({ pluginMessage: { type: 'resize', size: 'small' } }, '*'); 
     document.getElementById('page-intro').style.visibility = "hidden"; 
     document.getElementById('page-check-fail').style.visibility = "hidden"; 
-    document.getElementById('page-check-pass').style.visibility = "visible"; 
+    document.getElementById('page-check-pass').style.visibility = "visible";
+    document.getElementById('zero-state-nav').style.visibility = "hidden";  
   } else if (message.type === 'check-fail') {
-    parent.postMessage({ pluginMessage: { type: 'resize', size: 'large' } }, '*'); 
     document.getElementById('page-intro').style.visibility = "hidden"; 
     document.getElementById('page-check-fail').style.visibility = "visible"; 
     document.getElementById('page-check-pass').style.visibility = "hidden"; 
+    document.getElementById('zero-state-nav').style.visibility = "hidden"; 
 
     var inaccessibleTexts = message.inaccessibleTexts; 
     var aaTexts = message.aaTexts; 
@@ -196,9 +192,7 @@ onmessage = (event) => {
     for (let t of aaTexts) {
       createFocusObject(t, false); 
     }
-  } else if (message.type === 'test') { 
-    console.log(message); 
-  }
+  } 
 }
 
 function createFocusObject(text, failedAll) {
@@ -314,10 +308,6 @@ function hexToRgb(hex) {
   } : null;
 }
 
-
-// document.getElementById('textRange').addEventListener("input", () => updateRGB("textRange", "testID") ); 
-
-
 function updateRGB(id, updateText, fontSize) {
   
   // this gets hte amount to mod by 
@@ -403,11 +393,58 @@ function getContrast(tr, tb, tg, br, bb, bg) {
 
 <style>
 
+body {
+    width: 100%; 
+    font-family: "Segoe UI"; 
+    font-size: 12px; 
+    overflow-x: hidden; 
+    /* overflow-x: hidden; */
+  }
+
+#zero-state-nav {
+    display: flex; 
+    flex-direction: row ; 
+    border-bottom: 1px solid #E4E3E3; 
+    padding-left: 6px; 
+    position: absolute; 
+    top: 0px; 
+    left: 0px; 
+    width: 100%; 
+    height: 25px; 
+    /* border: 1px solid red;  */
+}
+
+#about {
+    position: absolute; 
+    top: 30px; 
+    left: 0px; 
+    /* border: 1px solid red;  */
+    height: 80vh;  
+    padding: 75px 50px; 
+    text-align: center; 
+    /* visibility: hidden;  */
+  }
+
+  #about p {
+    width: 100%; 
+  }
+
+#zero-state-nav span {
+  font-size: 12px; 
+  font-weight: 600; 
+  padding: 5px 10px; 
+  color: #929292; 
+  text-decoration: none; 
+  cursor: pointer; 
+  width: 65px; 
+  /* border: 1px solid blue;  */
+}
+
 #page-intro, #page-check-pass, #page-check-fail {
   width: 100vw; 
   /* height: 100vh;  */
   position: absolute; 
-  top: 0px; 
+  
   left: 0px; 
   display: flex; 
   flex-direction: column; 
@@ -416,15 +453,21 @@ function getContrast(tr, tb, tg, br, bb, bg) {
   text-align: center; 
   line-height: 1.2em; 
   align-items: center; 
-
-}
-
-#page-check-fail {
-  padding-bottom: 70px; 
+  /* border: 1px solid green;  */
 }
 
 #page-intro, #page-check-pass {
   height: 100vh; 
+  top: 30px; 
+}
+
+#page-check-fail {
+  padding-bottom: 70px; 
+  top: 0px
+}
+
+#page-intro, #page-check-pass {
+  height: 80vh; 
   }
 
 #page-intro, #page-check-pass {

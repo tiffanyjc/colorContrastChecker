@@ -13,15 +13,9 @@ var canvasUpdater = new CanvasUpdater();
 var message = {};
 var curFrame = null;
 var textNodeToBgNode = {};
-figma.showUI(__html__, { width: 300, height: 300 });
+figma.showUI(__html__, { width: 375, height: 500 });
 figma.ui.onmessage = function (msg) {
-    if (msg.type === 'resize') {
-        var width = (msg.size == "small") ? 300 : 400;
-        var height = (msg.size == "small") ? 300 : 600;
-        curFrame = (msg.size == "small") ? null : curFrame;
-        figma.ui.resize(width, height);
-    }
-    else if (msg.type === 'window-blur') {
+    if (msg.type === 'window-blur') {
         onCanvasFocus();
     }
     else if (msg.type === 'window-focus') {
