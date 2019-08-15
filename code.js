@@ -67,42 +67,31 @@ figma.ui.onmessage = function (msg) {
     else if (msg.type === 'check-contrast') {
         var selection = (curFrame == null) ? figma.currentPage.selection[0] : curFrame;
         curFrame = (curFrame == null) ? figma.currentPage.selection[0] : curFrame;
-        var texts = selection.findAll(function (node) { return (node.type === 'TEXT') && completelyVisible(node) && hasFill(node) && typeof node.fills !== 'symbol'; });
-        function validBackground(s) {
-            return (((s.type == 'RECTANGLE') || (s.type == 'VECTOR') || (s.type == 'FRAME')) && completelyVisible(s) && hasFill(s));
-        }
-        var backgrounds = validBackgrounds(selection.children);
-        function validBackgrounds(selection) {
-            var bgs = [];
-            for (var _i = 0, selection_1 = selection; _i < selection_1.length; _i++) {
-                var s = selection_1[_i];
-                if (validBackground(s)) {
-                    bgs.push(s);
-                }
-                else if ((s.type == 'GROUP') || (s.type == 'COMPONENT') || (s.type == 'INSTANCE')) {
-                    bgs = bgs.concat(validBackgrounds(s.children));
-                }
-            }
-            return bgs;
+        var texts = selection.findAll(function (node) { return (node.type === 'TEXT') && completelyVisible(node) && hasSolidFill(node) && typeof node.fills !== 'symbol'; });
+        var backgrounds = selection.findAll(function (node) {
+            return ((node.type === 'RECTANGLE') || (node.type === 'VECTOR') || (node.type === 'FRAME')) && completelyVisible(node) && hasSolidFill(node);
+        });
+        // add frame if solid color 
+        if (hasSolidFill(selection)) {
+            backgrounds.push(selection);
         }
         var inaccessibleTexts = [];
         var aaTexts = [];
         var aaaTexts = [];
-        var overlappingBGs = null;
-        for (var _i = 0, texts_1 = texts; _i < texts_1.length; _i++) {
-            var text = texts_1[_i];
-            overlappingBGs = getOverlaps(text, backgrounds);
-            if (isTextOnTop(text, selection, overlappingBGs)) {
-                var topLayer = topMostLayer(text, selection, overlappingBGs);
-                textNodeToBgNode[text.id] = topLayer.id;
-                var textColor = text.fills[0].color;
-                var frameBackgrounds = selection.backgrounds;
-                var frameColor = (frameBackgrounds.length > 0) ? selection.backgrounds[0].color : null;
-                var topLayerColor = ((topLayer != null) && (topLayer.type != "FRAME")) ? topLayer.fills[0].color : frameColor;
-                var noBG = (topLayer == null) && (frameColor == null);
+        var _loop_1 = function (text) {
+            overlappingBGs = backgrounds.filter(function (background) { return isOverlapping(text, background); });
+            topBG = getTopBG(overlappingBGs);
+            // make sure text is on top and there are viable BGs to work with 
+            if ((topBG != null) && (text === higherBG(text, topBG))) {
+                textNodeToBgNode[text.id] = topBG.id;
+                textColor = text.fills[0].color;
+                frameBackgrounds = selection.backgrounds;
+                frameColor = (frameBackgrounds.length > 0) ? selection.backgrounds[0].color : null;
+                topLayerColor = ((topBG != null) && (topBG.type != "FRAME")) ? topBG.fills[0].color : frameColor;
+                noBG = (topBG == null) && (frameColor == null);
                 if (topLayerColor != null) {
-                    var contrastRatio = getContrast(textColor, topLayerColor);
-                    var fontSize = text.fontSize;
+                    contrastRatio = getContrast(textColor, topLayerColor);
+                    fontSize = text.fontSize;
                     if (((fontSize >= 19) && (contrastRatio < 3)) || ((fontSize < 19) && (contrastRatio < 4.5))) {
                         inaccessibleTexts.push({
                             "nodeID": text.id,
@@ -132,6 +121,11 @@ figma.ui.onmessage = function (msg) {
                     }
                 }
             }
+        };
+        var overlappingBGs, topBG, textColor, frameBackgrounds, frameColor, topLayerColor, noBG, contrastRatio, fontSize;
+        for (var _i = 0, texts_1 = texts; _i < texts_1.length; _i++) {
+            var text = texts_1[_i];
+            _loop_1(text);
         }
         if (inaccessibleTexts.length + aaTexts.length === 0) {
             message = {
@@ -149,6 +143,86 @@ figma.ui.onmessage = function (msg) {
         figma.ui.postMessage(message);
     }
 };
+// higher index = closer to top 
+var higherBG = function (bg1, bg2) {
+    var parent = getCommonParent(bg1, bg2, []);
+    if (bg1 === parent) {
+        return bg2;
+    }
+    else if (bg2 === parent) {
+        return bg1;
+    }
+    var bg1Chain = bg1;
+    var bg2Chain = bg2;
+    while (bg1Chain.parent !== parent) {
+        bg1Chain = bg1Chain.parent;
+    }
+    while (bg2Chain.parent !== parent) {
+        bg2Chain = bg2Chain.parent;
+    }
+    return (parent.children.indexOf(bg1Chain) > parent.children.indexOf(bg2Chain)) ? bg1 : bg2;
+    // figma.currentPage.selection = [parent]; 
+    // return isBG1Higher(parent, bg1, bg2) ? bg1 : bg2; 
+};
+function getCommonParent(bg1, bg2, seenParents) {
+    if (bg1.parent == bg2.parent) {
+        if (bg1 === curFrame) {
+            return curFrame;
+        }
+        else {
+            return bg1.parent;
+        }
+    }
+    else if (seenParents.includes(bg1)) {
+        return bg1;
+    }
+    else if (seenParents.includes(bg2)) {
+        return bg2;
+    }
+    else if (bg1 === curFrame) {
+        return getCommonParent(bg1, bg2.parent, seenParents.concat([bg2]));
+    }
+    else if (bg2 === curFrame) {
+        return getCommonParent(bg1.parent, bg2, seenParents.concat([bg1]));
+    }
+    else {
+        return getCommonParent(bg1.parent, bg2.parent, seenParents.concat([bg1, bg2]));
+    }
+}
+// function isHigher(bg1, bg2) {
+//   if (bg1.type === 'FRAME') {
+//     if (bg1.findAll(node => node === bg2).length > 0) {
+//       return false; 
+//     }
+//   } else if (bg2.type === 'FRAME') {
+//     if (bg2.findAll(node => node === bg1).length > 0) {
+//       return true; 
+//     }
+//   }
+//   if (bg1.parent === bg2.parent) {
+//     return (bg1.parent.children.indexOf(bg1) > bg2.parent.children.indexOf(bg2)); 
+//   } else if (bg1.parent === curFrame) {
+//     return isHigher(bg1, bg2.parent); 
+//   } else if (bg2.parent === curFrame) {
+//     return isHigher(bg1.parent, bg2.parent); 
+//   } else {
+//     return isHigher(bg1.parent, bg2.parent); 
+//   }
+// }
+// var higherBG = (bg1, bg2) => {
+//   return (isHigher(bg1, bg2) ? bg1 : bg2); 
+// }; 
+function getTopBG(overlappingBGs) {
+    if (overlappingBGs.length == 0) {
+        return null;
+    }
+    else if (overlappingBGs.length == 1) {
+        return overlappingBGs[0];
+    }
+    else {
+        return overlappingBGs.reduce(higherBG);
+    }
+}
 function onCanvasFocus() {
     canvasUpdater.start(checkButtons);
 }
@@ -234,7 +308,7 @@ function topMostLayer(text, frame, overlappingBGs) {
     }
     while (topMostLayer.type == "GROUP") {
         var bgLayers = topMostLayer.children;
-        bgLayers = getOverlaps(text, bgLayers);
+        bgLayers = bgLayers.filter(function (background) { return isOverlapping(text, background); });
         var topMostLayer = bgLayers[0];
         for (var i = 0; i < overlappingBGs.length - 1; i++) {
             topMostLayer = getTopLayer(topMostLayer, overlappingBGs[i + 1], frame);
@@ -263,27 +337,22 @@ function isOverlapping(text, background) {
         background.y + background.height >= text.y);
 }
 ;
-function getOverlaps(text, backgrounds) {
-    var overlappingBGs = backgrounds.filter(function (background) { return isOverlapping(text, background); });
-    return overlappingBGs;
-}
-;
 function completelyVisible(node) {
     if (node.parent.type == "PAGE") {
         return node.visible;
     }
-    else if ((!node.visible) || (node.parent.getSharedPluginData("a11y", "type") == "annotation")) {
+    else if ((!node.visible) || (node.opacity < 1) || (node.parent.getSharedPluginData("a11y", "type") == "annotation")) {
         return false;
     }
     else {
         return completelyVisible(node.parent);
     }
 }
-function hasFill(node) {
+function hasSolidFill(node) {
     if (node.type == "FRAME") {
-        return (node.backgrounds.length >= 0);
+        return (node.backgrounds.length == 1);
     }
     else {
-        return (node.fills.length > 0);
+        return (node.fills.length == 1) && (node.fills[0].opacity == 1);
     }
 }
