@@ -93,9 +93,12 @@ class CanvasUpdater {
           textNodeToBgNode[text.id] = topBG.id; 
           var textColor = text.fills[0].color; 
           
+          // getting bg color of the larger frame 
           var frameBackgrounds = selection.backgrounds; 
-          var frameColor = (frameBackgrounds.length > 0) ? (<SolidPaint> selection.backgrounds[0]).color : null; 
-          var topLayerColor = ((topBG != null) && (topBG.type != "FRAME")) ? topBG.fills[0].color : frameColor; 
+          var frameColor = (frameBackgrounds.length > 0) ? (<SolidPaint> selection.backgrounds[0]).color : null;
+          
+          var topLayerColor = ((topBG != null)) ? topBG.fills[0].color : frameColor; 
+          // var topLayerColor = ((topBG != null) && (topBG.type != "FRAME")) ? topBG.fills[0].color : frameColor; 
           var noBG = (topBG == null) && (frameColor == null); 
   
           if (topLayerColor != null) {

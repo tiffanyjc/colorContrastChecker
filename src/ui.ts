@@ -48,15 +48,25 @@ document.getElementById('button-exit').onclick = () => {
   };
   
   document.getElementById('button-done').onclick = () => {
+    var x = document.getElementsByClassName('contrast-object'); 
+    for(var i = x.length - 1; i >= 0; i--) {
+        x[i].parentNode.removeChild(x[i]);
+    }
+
     document.getElementById('page-check-fail').style.visibility = "hidden"; 
     document.getElementById('page-check-pass').style.visibility = "hidden"; 
     document.getElementById('page-intro').style.visibility = "visible"; 
     document.getElementById('zero-state-nav').style.visibility = "visible"; 
+    parent.postMessage({ pluginMessage: { type: 'check-done' } }, '*');
   }; 
   
   document.getElementById('button-check').onclick = () => {
     // disable this button if nothing is selected 
     // todo send message to parent to check for inaccessible text 
+    var x = document.getElementsByClassName('contrast-object'); 
+    for(var i = x.length - 1; i >= 0; i--) {
+        x[i].parentNode.removeChild(x[i]);
+    }
     parent.postMessage({ pluginMessage: { type: 'check-contrast' } }, '*'); 
   }
   
@@ -75,6 +85,7 @@ document.getElementById('button-exit').onclick = () => {
   // receiving messages from parent 
 onmessage = (event) => {
     var message = event.data.pluginMessage; 
+    console.log("message: " + message.type); 
     if (message.type === 'disable-buttons') {
       (<HTMLInputElement> document.getElementById('button-check')).disabled = message.isDisabled; 
     } else if (message.type === 'check-pass') {
