@@ -1,0 +1,91 @@
+
+  <div id="zero-state-nav">
+    <span id="link-instructions">
+      Instructions
+    </span>
+    <span id="link-about">
+      About
+    </span>
+</div>
+<div id="page-intro">
+  <p>Select a frame. We’ll check the color contrast of all visible text objects. </p>
+
+  <button class="button-normal" id="button-check">Check</button>
+  
+  <div id="helper-container">
+      <span id="helper-text">
+          <b>Normal fonts (< 19px) </b><br />
+          AA compliant: 4.5:1 <br />
+          AAA compliant: 7:1 <br />
+      </span>
+      <span id="helper-text">
+          <b>Large fonts (19px+) </b><br />
+          AA compliant: 3:1 <br />
+            AAA compliant: 4.5:1 <br />
+      </span>
+  </div>
+ 
+</div>
+
+<div id="about">
+    <h1>Microsoft Color Contrast Checker</h1>
+    <p>&copy; 2019 Microsoft. All rights reserved.</p>
+    <p><a href="http://contentreel.design/license-terms/Software-License-Terms.pdf" target="_blank">Microsoft Software License Terms</a></p>
+    <p><a href="https://privacy.microsoft.com/en-US/privacystatement"> Microsoft Privacy Statement</a></p>
+</div>
+
+<!--  split   -->
+
+<div id="page-check-pass">
+  
+  <p><span id="header-pass">AAAMAZING</span><br />&nbsp; <br />
+    All texts meet AAA color contrast requirements.</p>
+
+  <button class="button-normal" id="button-done">Done</button>
+  
+  <div id="helper-container">
+      <span id="helper-text">
+          <b>Normal fonts (< 19px) </b><br />
+          AA compliant: 4.5:1 <br />
+          AAA compliant: 7:1 <br />
+      </span>
+      <span id="helper-text">
+          <b>Large fonts (19px+) </b><br />
+          AA compliant: 3:1 <br />
+            AAA compliant: 4.5:1 <br />
+      </span>
+  </div>
+</div>
+
+<!--  split   -->
+
+<div id="page-check-fail">
+
+  <div id="preface">
+
+      <p><span id="header-fail" class="header-fail">5</span> 
+        <span class="header-fail">error(s) found in </span>
+        <span id="frame-name" class="header-fail" >Frame name</span><br />&nbsp; <br />
+        We're listing them below.</p>
+    
+        <div id="helper-container">
+            <span id="helper-text">
+                <b>Normal fonts (< 19px) </b><br />
+                AA compliant: 4.5:1 <br />
+                AAA compliant: 7:1 <br />
+            </span>
+            <span id="helper-text">
+                <b>Large fonts (19px +) </b><br />
+                AA compliant: 3:1 <br />
+                  AAA compliant: 4.5:1 <br />
+            </span>
+        </div>
+  </div>
+
+  
+  <div id="container-buttons">
+      <!-- <button class="button-normal" id="button-recheck">Recheck</button> -->
+      <button class="button-normal" id="button-exit">Done</button>
+  </div>
+  
+</div>

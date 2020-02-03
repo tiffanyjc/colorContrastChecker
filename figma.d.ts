@@ -1,46 +1,35 @@
+// Figma Plugin API version 1, update 10
+
+declare global {
 // Global variable with Figma's plugin API.
-declare const figma: PluginAPI
-declare const __html__: string
+const figma: PluginAPI
+const __html__: string
 
 interface PluginAPI {
-  readonly apiVersion: "0.6.0"
-
-  readonly currentPage: PageNode
-
-  // Root of the current Figma document.
-  readonly root: DocumentNode
-
-  // API for accessing viewport information.
-  readonly viewport: ViewportAPI
-
-  // call this once your plugin is finished executing.
-  closePlugin(): void
-
-  // Command that the user chose through menu when launching the plugin.
+  readonly apiVersion: "1.0.0"
   readonly command: string
+  readonly viewport: ViewportAPI
+  closePlugin(message?: string): void
 
-  // Finds a node by its id. If not found, returns null.
-  getNodeById(id: string): BaseNode | null
+  notify(message: string, options?: NotificationOptions): NotificationHandler
 
-  // Finds a style by its id. If not found, returns null.
-  getStyleById(id: string): BaseStyle | null
-
-  // Access browser APIs and/or show UI to the user.
   showUI(html: string, options?: ShowUIOptions): void
   readonly ui: UIAPI
 
-  // Lets you store persistent data on the user's local machine
   readonly clientStorage: ClientStorageAPI
 
-  // This value is returned when a property is in a "mixed" state.
-  // In order to check if a property is in a mixed state, always
-  // compare directly to this value. I.e.
-  // `if (node.cornerRadius === figma.mixed) { ... }`
-  mixed: symbol
+  getNodeById(id: string): BaseNode | null
+  getStyleById(id: string): BaseStyle | null
 
-  // Creates new nodes. Nodes will start off inserted
-  // into the current page.
-  // To move them elsewhere use `appendChild` or `insertChild`
+  readonly root: DocumentNode
+  currentPage: PageNode
+
+  on(type: "selectionchange" | "currentpagechange" | "close", callback: () => void): void
+  once(type: "selectionchange" | "currentpagechange" | "close", callback: () => void): void
+  off(type: "selectionchange" | "currentpagechange" | "close", callback: () => void): void
+
+  readonly mixed: unique symbol
+
   createRectangle(): RectangleNode
   createLine(): LineNode
   createEllipse(): EllipseNode
@@ -48,65 +37,76 @@ interface PluginAPI {
   createStar(): StarNode
   createVector(): VectorNode
   createText(): TextNode
-  createBooleanOperation(): BooleanOperationNode
   createFrame(): FrameNode
   createComponent(): ComponentNode
   createPage(): PageNode
   createSlice(): SliceNode
+  /**
+   * [DEPRECATED]: This API often fails to create a valid boolean operation. Use figma.union, figma.subtract, figma.intersect and figma.exclude instead.
+   */
+  createBooleanOperation(): BooleanOperationNode
 
-  // Creates styles. A style's id can be assigned to
-  // node properties like textStyleId, fillStyleId, etc.
   createPaintStyle(): PaintStyle
   createTextStyle(): TextStyle
   createEffectStyle(): EffectStyle
   createGridStyle(): GridStyle
 
-  // These let you insert stuff from the team library if you have the key
+  // The styles are returned in the same order as displayed in the UI. Only
+  // local styles are returned. Never styles from team library.
+  getLocalPaintStyles(): PaintStyle[]
+  getLocalTextStyles(): TextStyle[]
+  getLocalEffectStyles(): EffectStyle[]
+  getLocalGridStyles(): GridStyle[]
+
   importComponentByKeyAsync(key: string): Promise<ComponentNode>
   importStyleByKeyAsync(key: string): Promise<BaseStyle>
 
-  // Return all fonts currently supported for use with the "fontName" property
   listAvailableFontsAsync(): Promise<Font[]>
-
-  // You must await the promise returned here before being able to use "fontName"
   loadFontAsync(fontName: FontName): Promise<void>
+  readonly hasMissingFont: boolean
 
-  // Creates node from an SVG string.
   createNodeFromSvg(svg: string): FrameNode
 
-  // Creates an Image object using the provided file contents.
   createImage(data: Uint8Array): Image
-
-  // Returns an existing Image object from a hash, which allow you to get the bytes of the image
   getImageByHash(hash: string): Image
 
-  // Groups every node in `nodes` under a new group.
-  group(nodes: ReadonlyArray<BaseNode>, parent: BaseNode & ChildrenMixin, index?: number): FrameNode
-
-  // Flattens every node in `nodes` into a single vector network.
+  group(nodes: ReadonlyArray<BaseNode>, parent: BaseNode & ChildrenMixin, index?: number): GroupNode
   flatten(nodes: ReadonlyArray<BaseNode>, parent?: BaseNode & ChildrenMixin, index?: number): VectorNode
+
+  union(nodes: ReadonlyArray<BaseNode>, parent: BaseNode & ChildrenMixin, index?: number): BooleanOperationNode
+  subtract(nodes: ReadonlyArray<BaseNode>, parent: BaseNode & ChildrenMixin, index?: number): BooleanOperationNode
+  intersect(nodes: ReadonlyArray<BaseNode>, parent: BaseNode & ChildrenMixin, index?: number): BooleanOperationNode
+  exclude(nodes: ReadonlyArray<BaseNode>, parent: BaseNode & ChildrenMixin, index?: number): BooleanOperationNode
 }
 
 interface ClientStorageAPI {
-  // This stores information in the browser, not on the server. It's similar to localStorage, but is
-  // asynchronous, and allows storing objects, arrays, strings, numbers, booleans, null, undefined and Uint8Arrays.
   getAsync(key: string): Promise<any | undefined>
   setAsync(key: string, value: any): Promise<void>
 }
 
-type ShowUIOptions = {
-  visible?: boolean, // defaults to true
-  width?: number,    // defaults to 300
-  height?: number,   // defaults to 200
+interface NotificationOptions {
+  timeout?: number,
 }
 
-type PostMessage = {
-  targetOrigin?: string, // defaults to '*'
+interface NotificationHandler {
+  cancel: () => void,
 }
 
-type OnMessageProperties = {
-  sourceOrigin: string,
+interface ShowUIOptions {
+  visible?: boolean,
+  width?: number,
+  height?: number,
 }
+
+interface UIPostMessageOptions {
+  origin?: string,
+}
+
+interface OnMessageProperties {
+  origin: string,
+}
+
+type MessageEventHandler = (pluginMessage: any, props: OnMessageProperties) => void
 
 interface UIAPI {
   show(): void
@@ -114,61 +114,22 @@ interface UIAPI {
   resize(width: number, height: number): void
   close(): void
 
-  // Sends a message to the iframe. If the `targetOrigin` option is provided, the message will
-  // only be delivered to the iframe if the origin of the document inside the iframe matches
-  // the `targetOrigin`. You can also use `'*'` to allow the message to be passed to any document.
-  postMessage(pluginMessage: any, options?: PostMessageOptions): void
-
-  // Registers a callback for messages sent by the iframe. The `pluginMessage` argument
-  // contains the message provided by the iframe. The `sourceOrigin` property contains the origin
-  // of the document that sent the message.
-  onmessage: ((pluginMessage: any, props: OnMessageProperties) => void) | undefined
+  postMessage(pluginMessage: any, options?: UIPostMessageOptions): void
+  onmessage: MessageEventHandler | undefined
+  on(type: "message", callback: MessageEventHandler): void
+  once(type: "message", callback: MessageEventHandler): void
+  off(type: "message", callback: MessageEventHandler): void
 }
 
 interface ViewportAPI {
   center: { x: number, y: number }
-
-  // 1.0 means 100% zoom, 0.5 means 50% zoom.
   zoom: number
-
-  // Adjust the viewport such that it shows the provided nodes.
-  scrollAndZoomIntoView(nodes: ReadonlyArray<BaseNode>)
+  scrollAndZoomIntoView(nodes: ReadonlyArray<BaseNode>): void
 }
-
-// manifest.json format
-interface ManifestJson {
-  // Name of the plugin.
-  name: string
-
-  // Version of the runtime that the plugin uses, e.g. '0.6.0'.
-  api: string
-
-  // The file name that contains the plugin code.
-  script: string
-
-  // The file name that contains the html code made available in script.
-  html?: string
-
-  // Shell command to be executed before the contents of the `html` and `script` files are read.
-  build?: string
-
-  // Menu items to show up in UI.
-  menu?: ManifestMenuItem[]
-}
-
-type ManifestMenuItem =
-  // Clickable menu item.
-  { name: string, command: string } |
-  // Separator
-  { separator: true } |
-  // Submenu
-  { name: string, menu: ManifestMenuItem[] }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Values
+// Datatypes
 
-// These are the top two rows of a 3x3 matrix. This is enough to represent
-// translation, rotation, and skew.
 type Transform = [
   [number, number, number],
   [number, number, number]
@@ -236,16 +197,14 @@ interface ColorStop {
   readonly color: RGBA
 }
 
-// All of these properties correspond to their equivalent in the Figma UI
-// and have range -1.0 to 1.0 and default to 0 when unspecified.
 interface ImageFilters {
-  exposure?: number
-  contrast?: number
-  saturation?: number
-  temperature?: number
-  tint?: number
-  highlights?: number
-  shadows?: number
+  readonly exposure?: number
+  readonly contrast?: number
+  readonly saturation?: number
+  readonly temperature?: number
+  readonly tint?: number
+  readonly highlights?: number
+  readonly shadows?: number
 }
 
 interface SolidPaint {
@@ -310,29 +269,31 @@ interface GridLayoutGrid {
 
 type LayoutGrid = RowsColsLayoutGrid | GridLayoutGrid
 
+interface ExportSettingsConstraints {
+  readonly type: "SCALE" | "WIDTH" | "HEIGHT"
+  readonly value: number
+}
+
 interface ExportSettingsImage {
-  format: "JPG" | "PNG"
-  contentsOnly?: boolean    // defaults to true
-  suffix?: string
-  constraint?: {            // defaults to unscaled ({ type: "SCALE", value: 1 })
-    type: "SCALE" | "WIDTH" | "HEIGHT"
-    value: number
-  }
+  readonly format: "JPG" | "PNG"
+  readonly contentsOnly?: boolean    // defaults to true
+  readonly suffix?: string
+  readonly constraint?: ExportSettingsConstraints
 }
 
 interface ExportSettingsSVG {
-  format: "SVG"
-  contentsOnly?: boolean    // defaults to true
-  suffix?: string
-  svgOutlineText?: boolean  // defaults to true
-  svgIdAttribute?: boolean  // defaults to false
-  svgSimplifyStroke?: boolean // defaults to true
+  readonly format: "SVG"
+  readonly contentsOnly?: boolean    // defaults to true
+  readonly suffix?: string
+  readonly svgOutlineText?: boolean  // defaults to true
+  readonly svgIdAttribute?: boolean  // defaults to false
+  readonly svgSimplifyStroke?: boolean // defaults to true
 }
 
 interface ExportSettingsPDF {
-  format: "PDF"
-  contentsOnly?: boolean    // defaults to true
-  suffix?: string
+  readonly format: "PDF"
+  readonly contentsOnly?: boolean    // defaults to true
+  readonly suffix?: string
 }
 
 type ExportSettings = ExportSettingsImage | ExportSettingsSVG | ExportSettingsPDF
@@ -367,15 +328,13 @@ interface VectorNetwork {
 }
 
 interface VectorPath {
-  // Similar to the svg fill-rule
-  // "NONE" means an open path won't have a fill
   readonly windingRule: WindingRule | "NONE"
   readonly data: string
 }
 
 type VectorPaths = ReadonlyArray<VectorPath>
 
-type LetterSpacing = {
+interface LetterSpacing {
   readonly value: number
   readonly unit: "PIXELS" | "PERCENT"
 }
@@ -412,6 +371,62 @@ interface Font {
   fontName: FontName
 }
 
+type Reaction = { action: Action, trigger: Trigger }
+
+type Action =
+  { readonly type: "BACK" | "CLOSE" } |
+  { readonly type: "URL", url: string } |
+  { readonly type: "NODE",
+    readonly destinationId: string | null,
+    readonly navigation: Navigation,
+    readonly transition: Transition | null,
+    readonly preserveScrollPosition: boolean,
+
+    // Only present if navigation == "OVERLAY" and the destination uses
+    // overlay position type "RELATIVE"
+    readonly overlayRelativePosition?: Vector,
+  }
+
+interface SimpleTransition {
+  readonly type: "DISSOLVE" | "SMART_ANIMATE"
+  readonly easing: Easing
+  readonly duration: number
+}
+
+interface DirectionalTransition {
+  readonly type: "MOVE_IN" | "MOVE_OUT" | "PUSH" | "SLIDE_IN" | "SLIDE_OUT"
+  readonly direction: "LEFT" | "RIGHT" | "TOP" | "BOTTOM"
+  readonly matchLayers: boolean
+
+  readonly easing: Easing
+  readonly duration: number
+}
+
+export type Transition = SimpleTransition | DirectionalTransition
+
+type Trigger =
+  { readonly type: "ON_CLICK" | "ON_HOVER" | "ON_PRESS" | "ON_DRAG" } |
+  { readonly type: "AFTER_TIMEOUT", readonly timeout: number } |
+  { readonly type: "MOUSE_ENTER" | "MOUSE_LEAVE" | "MOUSE_UP" | "MOUSE_DOWN",
+    readonly delay: number,
+  }
+
+type Navigation = "NAVIGATE" | "SWAP" | "OVERLAY"
+
+interface Easing {
+  readonly type: "EASE_IN" | "EASE_OUT" | "EASE_IN_AND_OUT" | "LINEAR"
+}
+
+type OverflowDirection = "NONE" | "HORIZONTAL" | "VERTICAL" | "BOTH"
+
+type OverlayPositionType = "CENTER" | "TOP_LEFT" | "TOP_CENTER" | "TOP_RIGHT" | "BOTTOM_LEFT" | "BOTTOM_CENTER" | "BOTTOM_RIGHT" | "MANUAL"
+
+type OverlayBackground =
+  { readonly type: "NONE" } |
+  { readonly type: "SOLID_COLOR", readonly color: RGBA }
+
+type OverlayBackgroundInteraction = "NONE" | "CLOSE_ON_CLICK_OUTSIDE"
+
 ////////////////////////////////////////////////////////////////////////////////
 // Mixins
 
@@ -419,20 +434,15 @@ interface BaseNodeMixin {
   readonly id: string
   readonly parent: (BaseNode & ChildrenMixin) | null
   name: string // Note: setting this also sets `autoRename` to false on TextNodes
-  removed: boolean
+  readonly removed: boolean
   toString(): string
   remove(): void
 
-  // Attach custom data to a node. Only your plugin will be able to read this.
   getPluginData(key: string): string
   setPluginData(key: string, value: string): void
 
-  // Attach custom data to a node. All plugins will be able to read this.
   // Namespace is a string that must be at least 3 alphanumeric characters, and should
-  // be a name related to your plugin. This is a mandatory argument to avoid multiple
-  // multiple plugins adding keys like "data" and colliding with each other. Other
-  // plugins will still be able to read shared plugin data as long as they know the
-  // namespace you use.
+  // be a name related to your plugin. Other plugins will be able to read this data.
   getSharedPluginData(namespace: string, key: string): string
   setSharedPluginData(namespace: string, key: string, value: string): void
 }
@@ -443,35 +453,41 @@ interface SceneNodeMixin {
 }
 
 interface ChildrenMixin {
-  // Sorted back-to-front. I.e. the top-most child is last in this array.
-  readonly children: ReadonlyArray<BaseNode>
+  readonly children: ReadonlyArray<SceneNode>
 
-  // Adds to the end of the .children array. I.e. visually on top of all other
-  // children.
-  appendChild(child: BaseNode): void
+  appendChild(child: SceneNode): void
+  insertChild(index: number, child: SceneNode): void
 
-  insertChild(index: number, child: BaseNode): void
-  findAll(callback?: (node: BaseNode) => boolean): ReadonlyArray<BaseNode>
-  findOne(callback: (node: BaseNode) => boolean): BaseNode | null
+  /**
+   * If you only need to search immediate children, it is much faster
+   * to call node.children.filter(callback)
+   */
+  findAll(callback?: (node: SceneNode) => boolean): SceneNode[]
+
+  /**
+   * If you only need to search immediate children, it is much faster
+   * to call node.children.find(callback)
+   */
+  findOne(callback: (node: SceneNode) => boolean): SceneNode | null
+}
+
+interface ConstraintMixin {
+  constraints: Constraints
 }
 
 interface LayoutMixin {
   readonly absoluteTransform: Transform
   relativeTransform: Transform
-  x: number // The same as "relativeTransform[0][2]"
-  y: number // The same as "relativeTransform[1][2]"
-  rotation: number // The angle of the x axis of "relativeTransform" in degrees. Returns values from -180 to 180.
+  x: number
+  y: number
+  rotation: number // In degrees
 
-  readonly width: number // The same as "size.x"
-  readonly height: number // The same as "size.y"
+  readonly width: number
+  readonly height: number
 
-  // Resizes the node. If children of the node has constraints, it applies those constraints
-  // width and height must be >= 0.01. Except for LINE nodes which must always be given a
-  // height of exactly 0.
+  layoutAlign: "MIN" | "CENTER" | "MAX" // applicable only inside auto-layout frames
+
   resize(width: number, height: number): void
-
-  // Resizes the node. Children of the node are never resized, even if those children have
-  // constraints. width and height must be >= 0.01
   resizeWithoutConstraints(width: number, height: number): void
 }
 
@@ -483,16 +499,13 @@ interface BlendMixin {
   effectStyleId: string
 }
 
-interface FrameMixin {
-  backgrounds: ReadonlyArray<Paint>
+interface ContainerMixin {
+  backgrounds: ReadonlyArray<Paint> // DEPRECATED: use 'fills' instead
   layoutGrids: ReadonlyArray<LayoutGrid>
   clipsContent: boolean
   guides: ReadonlyArray<Guide>
   gridStyleId: string
-  backgroundStyleId: string
-
-  // Horizontal & vertical constraints of this node with respect to its containing frame
-  constraints: Constraints
+  backgroundStyleId: string // DEPRECATED: use 'fillStyleId' instead
 }
 
 type StrokeCap = "NONE" | "ROUND" | "SQUARE" | "ARROW_LINES" | "ARROW_EQUILATERAL"
@@ -500,106 +513,166 @@ type StrokeJoin = "MITER" | "BEVEL" | "ROUND"
 type HandleMirroring = "NONE" | "ANGLE" | "ANGLE_AND_LENGTH"
 
 interface GeometryMixin {
-  fills: ReadonlyArray<Paint> | symbol // This can return figma.mixed on TEXT nodes
+  fills: ReadonlyArray<Paint> | PluginAPI['mixed']
   strokes: ReadonlyArray<Paint>
   strokeWeight: number
   strokeAlign: "CENTER" | "INSIDE" | "OUTSIDE"
-  strokeCap: StrokeCap | symbol // This can return figma.mixed on VECTOR nodes if vertices have different strokeCap values
-  strokeJoin: StrokeJoin | symbol // This can return figma.mixed on VECTOR nodes if vertices have different strokeJoin values
+  strokeCap: StrokeCap | PluginAPI['mixed']
+  strokeJoin: StrokeJoin | PluginAPI['mixed']
   dashPattern: ReadonlyArray<number>
-  fillStyleId: string | symbol // This can return figma.mixed on TEXT nodes
+  fillStyleId: string | PluginAPI['mixed']
   strokeStyleId: string
-
-  // Horizontal & vertical constraints of this node with respect to its containing frame
-  constraints: Constraints
 }
 
 interface CornerMixin {
-  // This can return figma.mixed on VECTOR nodes if vertices have different cornerRadius values,
-  // and on RECTANGLE nodes if node.topLeftRadius etc has different values
-  cornerRadius: number | symbol
-
+  cornerRadius: number | PluginAPI['mixed']
   cornerSmoothing: number
 }
 
-interface ExportMixin {
-  exportSettings: ExportSettings[]
-  exportAsync(settings?: ExportSettings): Promise<Uint8Array> // Defaults to PNG format
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// Nodes
-
-interface DocumentNode extends BaseNodeMixin, ChildrenMixin {
-  readonly type: "DOCUMENT"
-  clone(): DocumentNode // Note: this always throws an error
-}
-
-interface PageNode extends BaseNodeMixin, ChildrenMixin, ExportMixin {
-  readonly type: "PAGE"
-  clone(): PageNode // cloned node starts off inserted into current page
-
-  guides: ReadonlyArray<Guide>
-  selection: ReadonlyArray<SelectableNode>
-}
-
-interface FrameNode extends BaseNodeMixin, SceneNodeMixin, BlendMixin, ChildrenMixin, FrameMixin, LayoutMixin, ExportMixin {
-  readonly type: "FRAME" | "GROUP"
-  clone(): FrameNode // cloned node starts off inserted into current page
-}
-
-interface SliceNode extends BaseNodeMixin, SceneNodeMixin, LayoutMixin, ExportMixin {
-  readonly type: "SLICE"
-  clone(): SliceNode // cloned node starts off inserted into current page
-}
-
-interface RectangleNode extends BaseNodeMixin, SceneNodeMixin, BlendMixin, CornerMixin, GeometryMixin, LayoutMixin, ExportMixin {
-  readonly type: "RECTANGLE"
-  clone(): RectangleNode // cloned node starts off inserted into current page
+interface RectangleCornerMixin {
   topLeftRadius: number
   topRightRadius: number
   bottomLeftRadius: number
   bottomRightRadius: number
 }
 
-interface LineNode extends BaseNodeMixin, SceneNodeMixin, BlendMixin, GeometryMixin, LayoutMixin, ExportMixin {
-  readonly type: "LINE"
-  clone(): LineNode // cloned node starts off inserted into current page
+interface ExportMixin {
+  exportSettings: ReadonlyArray<ExportSettings>
+  exportAsync(settings?: ExportSettings): Promise<Uint8Array> // Defaults to PNG format
 }
 
-interface EllipseNode extends BaseNodeMixin, SceneNodeMixin, BlendMixin, CornerMixin, GeometryMixin, LayoutMixin, ExportMixin {
+interface RelaunchableMixin {
+  /** PROPOSED API ONLY */
+  setRelaunchData(description: string): void
+  /** PROPOSED API ONLY */
+  clearRelaunchData(): void
+}
+
+interface ReactionMixin {
+  readonly reactions: ReadonlyArray<Reaction>
+}
+
+interface DefaultShapeMixin extends
+  BaseNodeMixin, SceneNodeMixin, ReactionMixin,
+  BlendMixin, GeometryMixin, LayoutMixin,
+  ExportMixin, RelaunchableMixin {
+}
+
+interface DefaultFrameMixin extends
+  BaseNodeMixin, SceneNodeMixin, ReactionMixin,
+  ChildrenMixin, ContainerMixin,
+  GeometryMixin, CornerMixin, RectangleCornerMixin,
+  BlendMixin, ConstraintMixin, LayoutMixin,
+  ExportMixin, RelaunchableMixin {
+
+  layoutMode: "NONE" | "HORIZONTAL" | "VERTICAL"
+  counterAxisSizingMode: "FIXED" | "AUTO" // applicable only if layoutMode != "NONE"
+  horizontalPadding: number // applicable only if layoutMode != "NONE"
+  verticalPadding: number // applicable only if layoutMode != "NONE"
+  itemSpacing: number // applicable only if layoutMode != "NONE"
+
+  overflowDirection: OverflowDirection
+  numberOfFixedChildren: number
+
+  readonly overlayPositionType: OverlayPositionType
+  readonly overlayBackground: OverlayBackground
+  readonly overlayBackgroundInteraction: OverlayBackgroundInteraction
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Nodes
+
+interface DocumentNode extends BaseNodeMixin {
+  readonly type: "DOCUMENT"
+
+  readonly children: ReadonlyArray<PageNode>
+
+  appendChild(child: PageNode): void
+  insertChild(index: number, child: PageNode): void
+
+  /**
+   * If you only need to search immediate children, it is much faster
+   * to call node.children.filter(callback)
+   */
+  findAll(callback?: (node: (PageNode | SceneNode)) => boolean): Array<PageNode | SceneNode>
+
+  /**
+   * If you only need to search immediate children, it is much faster
+   * to call node.children.find(callback)
+   */
+  findOne(callback: (node: (PageNode | SceneNode)) => boolean): PageNode | SceneNode | null
+}
+
+interface PageNode extends BaseNodeMixin, ChildrenMixin, ExportMixin, RelaunchableMixin {
+
+  readonly type: "PAGE"
+  clone(): PageNode
+
+  guides: ReadonlyArray<Guide>
+  selection: ReadonlyArray<SceneNode>
+
+  backgrounds: ReadonlyArray<Paint>
+
+  readonly prototypeStartNode: FrameNode | GroupNode | ComponentNode | InstanceNode | null
+}
+
+interface FrameNode extends DefaultFrameMixin {
+  readonly type: "FRAME"
+  clone(): FrameNode
+}
+
+interface GroupNode extends BaseNodeMixin, SceneNodeMixin, ReactionMixin, ChildrenMixin, ContainerMixin, BlendMixin, LayoutMixin, ExportMixin, RelaunchableMixin {
+  readonly type: "GROUP"
+  clone(): GroupNode
+}
+
+interface SliceNode extends BaseNodeMixin, SceneNodeMixin, LayoutMixin, ExportMixin, RelaunchableMixin {
+  readonly type: "SLICE"
+  clone(): SliceNode
+}
+
+interface RectangleNode extends DefaultShapeMixin, ConstraintMixin, CornerMixin, RectangleCornerMixin {
+  readonly type: "RECTANGLE"
+  clone(): RectangleNode
+}
+
+interface LineNode extends DefaultShapeMixin, ConstraintMixin {
+  readonly type: "LINE"
+  clone(): LineNode
+}
+
+interface EllipseNode extends DefaultShapeMixin, ConstraintMixin, CornerMixin {
   readonly type: "ELLIPSE"
-  clone(): EllipseNode // cloned node starts off inserted into current page
+  clone(): EllipseNode
   arcData: ArcData
 }
 
-interface PolygonNode extends BaseNodeMixin, SceneNodeMixin, BlendMixin, CornerMixin, GeometryMixin, LayoutMixin, ExportMixin {
+interface PolygonNode extends DefaultShapeMixin, ConstraintMixin, CornerMixin {
   readonly type: "POLYGON"
-  clone(): PolygonNode // cloned node starts off inserted into current page
+  clone(): PolygonNode
   pointCount: number
 }
 
-interface StarNode extends BaseNodeMixin, SceneNodeMixin, BlendMixin, CornerMixin, GeometryMixin, LayoutMixin, ExportMixin {
+interface StarNode extends DefaultShapeMixin, ConstraintMixin, CornerMixin {
   readonly type: "STAR"
-  clone(): StarNode // cloned node starts off inserted into current page
+  clone(): StarNode
   pointCount: number
-
-  // This is a percentage value from 0 to 1
   innerRadius: number
 }
 
-interface VectorNode extends BaseNodeMixin, SceneNodeMixin, BlendMixin, CornerMixin, GeometryMixin, LayoutMixin, ExportMixin {
+interface VectorNode extends DefaultShapeMixin, ConstraintMixin, CornerMixin {
   readonly type: "VECTOR"
-  clone(): VectorNode // cloned node starts off inserted into current page
+  clone(): VectorNode
   vectorNetwork: VectorNetwork
   vectorPaths: VectorPaths
-  handleMirroring: HandleMirroring | symbol // This can return figma.mixed if vertices have different handleMirroring values
+  handleMirroring: HandleMirroring | PluginAPI['mixed']
 }
 
-interface TextNode extends BaseNodeMixin, SceneNodeMixin, BlendMixin, GeometryMixin, LayoutMixin, ExportMixin {
+interface TextNode extends DefaultShapeMixin, ConstraintMixin {
   readonly type: "TEXT"
-  clone(): TextNode // cloned node starts off inserted into current page
+  clone(): TextNode
   characters: string
+  readonly hasMissingFont: boolean
   textAlignHorizontal: "LEFT" | "CENTER" | "RIGHT" | "JUSTIFIED"
   textAlignVertical: "TOP" | "CENTER" | "BOTTOM"
   textAutoResize: "NONE" | "WIDTH_AND_HEIGHT" | "HEIGHT"
@@ -607,66 +680,65 @@ interface TextNode extends BaseNodeMixin, SceneNodeMixin, BlendMixin, GeometryMi
   paragraphSpacing: number
   autoRename: boolean
 
-  // These properties can all return figma.mixed if the text has multiple values for the property
-  textStyleId: string | symbol
-  fontSize: number | symbol
-  fontName: FontName | symbol
-  textCase: TextCase | symbol
-  textDecoration: TextDecoration | symbol
-  letterSpacing: LetterSpacing | symbol
-  lineHeight: LineHeight | symbol
+  textStyleId: string | PluginAPI['mixed']
+  fontSize: number | PluginAPI['mixed']
+  fontName: FontName | PluginAPI['mixed']
+  textCase: TextCase | PluginAPI['mixed']
+  textDecoration: TextDecoration | PluginAPI['mixed']
+  letterSpacing: LetterSpacing | PluginAPI['mixed']
+  lineHeight: LineHeight | PluginAPI['mixed']
 
-  // All getRangeX functions can all return figma.mixed if the text has multiple values in the requested range
-  getRangeFontSize(start: number, end: number): number | symbol
+  getRangeFontSize(start: number, end: number): number | PluginAPI['mixed']
   setRangeFontSize(start: number, end: number, value: number): void
-  getRangeFontName(start: number, end: number): FontName | symbol
+  getRangeFontName(start: number, end: number): FontName | PluginAPI['mixed']
   setRangeFontName(start: number, end: number, value: FontName): void
-  getRangeTextCase(start: number, end: number): TextCase | symbol
+  getRangeTextCase(start: number, end: number): TextCase | PluginAPI['mixed']
   setRangeTextCase(start: number, end: number, value: TextCase): void
-  getRangeTextDecoration(start: number, end: number): TextDecoration | symbol
+  getRangeTextDecoration(start: number, end: number): TextDecoration | PluginAPI['mixed']
   setRangeTextDecoration(start: number, end: number, value: TextDecoration): void
-  getRangeLetterSpacing(start: number, end: number): LetterSpacing | symbol
+  getRangeLetterSpacing(start: number, end: number): LetterSpacing | PluginAPI['mixed']
   setRangeLetterSpacing(start: number, end: number, value: LetterSpacing): void
-  getRangeLineHeight(start: number, end: number): LineHeight | symbol
+  getRangeLineHeight(start: number, end: number): LineHeight | PluginAPI['mixed']
   setRangeLineHeight(start: number, end: number, value: LineHeight): void
-  getRangeFills(start: number, end: number): Paint[] | symbol
+  getRangeFills(start: number, end: number): Paint[] | PluginAPI['mixed']
   setRangeFills(start: number, end: number, value: Paint[]): void
-  getRangeTextStyleId(start: number, end: number): string | symbol
+  getRangeTextStyleId(start: number, end: number): string | PluginAPI['mixed']
   setRangeTextStyleId(start: number, end: number, value: string): void
-  getRangeFillStyleId(start: number, end: number): string | symbol
+  getRangeFillStyleId(start: number, end: number): string | PluginAPI['mixed']
   setRangeFillStyleId(start: number, end: number, value: string): void
 }
 
-interface ComponentNode extends BaseNodeMixin, SceneNodeMixin, BlendMixin, ChildrenMixin, FrameMixin, LayoutMixin, ExportMixin {
+interface ComponentNode extends DefaultFrameMixin {
   readonly type: "COMPONENT"
-  clone(): ComponentNode // cloned node starts off inserted into current page
+  clone(): ComponentNode
 
-  createInstance(): InstanceNode // instance starts off inserted into current page
+  createInstance(): InstanceNode
   description: string
   readonly remote: boolean
   readonly key: string // The key to use with "importComponentByKeyAsync"
 }
 
-interface InstanceNode extends BaseNodeMixin, SceneNodeMixin, BlendMixin, ChildrenMixin, FrameMixin, LayoutMixin, ExportMixin {
+interface InstanceNode extends DefaultFrameMixin  {
   readonly type: "INSTANCE"
-  clone(): InstanceNode // cloned node starts off inserted into current page
+  clone(): InstanceNode
   masterComponent: ComponentNode
 }
 
-interface BooleanOperationNode extends BaseNodeMixin, SceneNodeMixin, BlendMixin, ChildrenMixin, CornerMixin, GeometryMixin, LayoutMixin, ExportMixin {
+interface BooleanOperationNode extends DefaultShapeMixin, ChildrenMixin, CornerMixin {
   readonly type: "BOOLEAN_OPERATION"
-  clone(): BooleanOperationNode // cloned node starts off inserted into current page
+  clone(): BooleanOperationNode
   booleanOperation: "UNION" | "INTERSECT" | "SUBTRACT" | "EXCLUDE"
 }
 
 type BaseNode =
   DocumentNode |
   PageNode |
-  SelectableNode
+  SceneNode
 
-type SelectableNode =
+type SceneNode =
   SliceNode |
   FrameNode |
+  GroupNode |
   ComponentNode |
   InstanceNode |
   BooleanOperationNode |
@@ -700,7 +772,6 @@ type NodeType =
 type StyleType = "PAINT" | "TEXT" | "EFFECT" | "GRID"
 
 interface BaseStyle {
-  // The string to uniquely identify a style by
   readonly id: string
   readonly type: StyleType
   name: string
@@ -729,7 +800,7 @@ interface TextStyle extends BaseStyle {
 
 interface EffectStyle extends BaseStyle {
   type: "EFFECT"
-  effects: ReadonlyArray<Paint>
+  effects: ReadonlyArray<Effect>
 }
 
 interface GridStyle extends BaseStyle {
@@ -741,9 +812,9 @@ interface GridStyle extends BaseStyle {
 // Other
 
 interface Image {
-  // Returns a unique hash for the image
   readonly hash: string
-
-  // The contents of the image file
   getBytesAsync(): Promise<Uint8Array>
 }
+} // declare global
+
+export {}
